@@ -23,6 +23,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+if(!XMLHttpRequest.prototype.sendAsBinary){
+	XMLHttpRequest.prototype.sendAsBinary = function(datastr) {
+		function byteValue(x) {
+			return x.charCodeAt(0) & 0xff;
+		}
+		var ords = Array.prototype.map.call(datastr, byteValue);
+		var ui8a = new Uint8Array(ords);
+		this.send(ui8a.buffer);
+	}
+}
+if(!File.prototype.getAsBinary){
+	// well, how do we do this, then?
+}
 
 /**
  * @param DOMNode form
@@ -100,7 +113,7 @@ Uploader.prototype = {
                 if (element.files && element.files.length > 0) {
                     var files = Array.prototype.slice.call(element.files, 0);
 
-                    return files.map(function(file, index, allFiles) {
+                    files= files.map(function(file, index, allFiles) {
                         return {
                             isFile   : true,
                             name     : element.name,
@@ -108,6 +121,7 @@ Uploader.prototype = {
                             fileName : file.fileName
                         };
                     });
+										return files;
                 }
                 throw new Uploader.InvalidField;
             default:
@@ -180,7 +194,7 @@ Uploader.prototype = {
                     if (type !== "fieldset") {
                         try {
                             fields = fields.concat(this[method](element, index, elements));
-                        } catch (e if e instanceof Uploader.InvalidField) {}
+                        } catch (e /* if e instanceof Uploader.InvalidField*/) {}
                     }
                 }, this);
 
@@ -252,6 +266,15 @@ Uploader.prototype = {
         return request;
     },
 
+		rsc : function(xhr){
+			if (this.readyState === 4) {
+				u.success(xhr);
+			}
+    },
+		success : function(xhr){
+			console.log(xhr);
+		},
+
     /**
      * @return null
      */
@@ -259,12 +282,7 @@ Uploader.prototype = {
         var xhr = new XMLHttpRequest;
 
         xhr.open("POST", this.form.action, true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                alert(xhr.responseText);
-            }
-        };
-        
+        xhr.onreadystatechange = this.rsc;        
         var boundary    = this.generateBoundary();
         var contentType = "multipart/form-data; boundary=" + boundary;
         xhr.setRequestHeader("Content-Type", contentType);
